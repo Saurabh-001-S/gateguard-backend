@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Department {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  students Student[]
+}
+
+model Student {
+  id            Int           @id @default(autoincrement())
+  email         String        @unique
+  password      String
+  name          String
+  mobileNo      String
+  roomNo        String
+  gender        Gender
+  departmentId  Int
+  currentStatus StudentStatus @default(INSIDE)
+
+  department Department      @relation(fields: [departmentId], references: [id])
+  sessions   DeviceSession[]
+  logs       EntryExitLog[]
+}
+
+model Admin {
+  id       Int    @id @default(autoincrement())
+  name     String
+  email    String @unique
+  password String
+
+  logs EntryExitLog[]
+}
+
+model EntryExitLog {
+  id              Int  @id @default(autoincrement())
+  studentId       Int
+  deviceSessionId Int? // nullable: auto-approved exits may not have session yet
+
+  requestType RequestType
+  requestTime DateTime    @default(now())
+
+  approvalStatus ApprovalStatus @default(PENDING)
+  approvalTime   DateTime? // nullable until decision is made
+
+  latitude      Decimal @db.Decimal(10, 7)
+  longitude     Decimal @db.Decimal(10, 7)
+  locationValid Boolean
+  suspicious    Boolean @default(false)
+
+  adminId Int? // nullable: auto-approved has no admin
+
+  student       Student        @relation(fields: [studentId], references: [id])
+  admin         Admin?         @relation(fields: [adminId], references: [id])
+  deviceSession DeviceSession? @relation(fields: [deviceSessionId], references: [id])
+
+  @@index([studentId])
+  @@index([approvalStatus])
+  @@index([studentId, requestTime])
+}
+
+model DeviceSession {
+  id         Int      @id @default(autoincrement())
+  studentId  Int
+  deviceId   String
+  deviceName String
+  ipAddress  String // removed @unique — NAT/shared WiFi breaks this
+  latitude   Decimal  @db.Decimal(10, 7)
+  longitude  Decimal  @db.Decimal(10, 7)
+  createdAt  DateTime @default(now())
+  lastSeen   DateTime @default(now()) @updatedAt
+  isActive   Boolean  @default(true)
+
+  student Student        @relation(fields: [studentId], references: [id])
+  logs    EntryExitLog[]
+
+  @@unique([studentId, deviceId]) // one session per student+device pair
+  @@index([studentId])
+}
+
+model GateConfig {
+  id        Int     @id @default(autoincrement())
+  gateNo    Int
+  latitude  Decimal @db.Decimal(10, 7)
+  longitude Decimal @db.Decimal(10, 7)
+  radius    Int // in metres
+  isActive  Boolean @default(true)
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum StudentStatus {
+  INSIDE
+  OUTSIDE
+}
+
+enum RequestType {
+  ENTRY
+  EXIT
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  AUTO_APPROVED
+}
