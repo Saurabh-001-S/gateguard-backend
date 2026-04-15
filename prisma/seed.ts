@@ -20,9 +20,9 @@ async function main() {
     update: {},
     create: {
       gateNo: 1,
-      latitude: 23.0225,
-      longitude: 72.5714,
-      radius: 50,
+      latitude: 20.718807,
+      longitude: 70.939909,
+      radius: 500,
       isActive: true,
     },
   });
